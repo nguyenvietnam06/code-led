@@ -1,0 +1,129 @@
+#include "main.h"
+#include "led7.h"
+
+/* Private variables ---------------------------------------------------------*/
+uint8_t number = 0;    // số hiển thị trên LED
+uint8_t mode = 0;      // 0 = dừng, 1 = chạy tự động
+uint8_t lastMode = 1;  // 1 = tự động đếm lên, 2 = tự động đếm xuống (mặc định lên)
+
+/* Function prototypes -------------------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+
+int main(void)
+{
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+
+  while (1)
+  {
+    // Quét LED
+    LED7_Display(number);
+    HAL_Delay(2);  // multiplexing
+
+    // Nút PB12: tăng số
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_RESET) {
+        number++;
+        if (number > 99) number = 0;
+        HAL_Delay(200);  // debounce
+    }
+
+    // Nút PB13: giảm số
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) == GPIO_PIN_RESET) {
+        if (number == 0) number = 99;
+        else number--;
+        HAL_Delay(200);  // debounce
+    }
+
+    // Nút PB14: toggle dừng/chạy
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_14) == GPIO_PIN_RESET) {
+        if (mode == 0) {
+            mode = 1;  // bật chạy tự động
+        } else {
+            mode = 0;  // dừng
+        }
+        HAL_Delay(300);
+    }
+
+    // Chế độ chạy tự động
+    static uint32_t lastTick = 0;
+    if (HAL_GetTick() - lastTick >= 500) {  // mỗi 500ms
+        lastTick = HAL_GetTick();
+
+        if (mode == 1) {
+            if (lastMode == 1) {   // đếm lên
+                number++;
+                if (number > 99) number = 0;
+            }
+            else if (lastMode == 2) { // đếm xuống
+                if (number == 0) number = 99;
+                else number--;
+            }
+        }
+    }
+  }
+}
+
+/* Clock + GPIO config giữ nguyên */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+    Error_Handler();
+  }
+
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) {
+    Error_Handler();
+  }
+}
+
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  // Segment PA0-PA7
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
+                          |GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
+                       |GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  // Digit select PB4, PB6
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4|GPIO_PIN_6, GPIO_PIN_SET);
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  // Buttons PB12, PB13, PB14
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
+void Error_Handler(void)
+{
+  __disable_irq();
+  while (1) {}
+}
