@@ -55,6 +55,7 @@ static void MX_GPIO_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint8_t number = 0;
 
 /* USER CODE END 0 */
 
@@ -66,7 +67,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	uint8_t i = 0;
 
   /* USER CODE END 1 */
 
@@ -89,6 +89,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
+	LED7_Number(number);  
 
   /* USER CODE END 2 */
  
@@ -99,13 +100,30 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		for (uint8_t i = 0; i < 10; i++) 
-		{
-				LED7_Number(i);
-				HAL_Delay(1000);
-		}
+		
+		
+    // Nút PB12 = TANG
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_RESET)
+    {
+        if (number < 9) number++;
+        else number = 0;  // quay l?i 0 n?u vu?t 9
+        LED7_Number(number);
+        HAL_Delay(300);   // ch?ng d?i phím
+        while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_12) == GPIO_PIN_RESET);
+    }
 
+    // Nút PB13 = GI?M
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) == GPIO_PIN_RESET)
+    {
+        if (number > 0) number--;
+        else number = 9;  // quay l?i 9 n?u <0
+        LED7_Number(number);
+        HAL_Delay(300);   // ch?ng d?i phím
+        while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13) == GPIO_PIN_RESET);
+    }
   }
+
+  
   /* USER CODE END 3 */
 }
 
@@ -177,7 +195,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : PB12 PB13 PB14 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
